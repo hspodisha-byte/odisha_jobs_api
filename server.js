@@ -1,18 +1,7 @@
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-require('dotenv').config();
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID;
-const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY;
-const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
-
-app.post('/api/search', async (req, res) => {
-  const { q, field, type } = req.body;
+// GET wala route add kar HTML ke liye
+app.get('/api/jobs', async (req, res) => {
+  const q = req.query.q || 'designer';
+  const field = req.query.field || '';
   let allJobs = [];
 
   try {
@@ -22,7 +11,7 @@ app.post('/api/search', async (req, res) => {
         app_key: ADZUNA_APP_KEY,
         what: q || field || 'designer',
         where: 'odisha',
-        results_per_page: 15
+        results_per_page: 20
       }
     });
 
@@ -34,14 +23,14 @@ app.post('/api/search', async (req, res) => {
       desc: job.description.slice(0, 200) + '...',
       link: job.redirect_url,
       deadline: 'Rolling',
-      posted: new Date(job.created).toLocaleDateString('en-IN'),
+      posted: new Date(job.created).toISOString().split('T')[0],
+      startDate: '2026-07-01',
       type: job.contract_time || 'Full-time',
       field: field || 'Design',
       src: 'private',
       srcLabel: 'Adzuna',
       odisha: true,
-      verified: true,
-      aiFound: true
+      verified: true
     }));
     allJobs = [...allJobs,...adzunaJobs];
   } catch (e) {
@@ -59,11 +48,11 @@ app.post('/api/search', async (req, res) => {
     });
 
     const govtJobs = govtRes.data.records
-    .filter(job => {
+   .filter(job => {
         const title = (job.title || job.department || '').toLowerCase();
         return title.includes('design') || title.includes('art') || title.includes('craft');
       })
-    .map(job => ({
+   .map(job => ({
         id: 'govt_' + Math.random(),
         title: job.title || 'Government Position',
         org: job.department || 'Govt of Odisha',
@@ -71,26 +60,21 @@ app.post('/api/search', async (req, res) => {
         desc: 'Government vacancy from data.gov.in',
         link: 'https://odisha.gov.in',
         deadline: job.last_date || 'Rolling',
-        posted: 'Recent',
+        posted: '2026-06-01',
+        startDate: '2026-08-01',
         type: 'Government Post',
         field: field || 'Design',
         src: 'govt',
         srcLabel: 'Govt of Odisha',
         odisha: true,
-        verified: true,
-        aiFound: true
+        verified: true
       }));
     allJobs = [...allJobs,...govtJobs];
   } catch (e) {
     console.log('Govt API error:', e.message);
   }
 
-  res.json({
-    jobs: allJobs,
-    advice: `Odisha me ${allJobs.length} jobs mili. Adzuna + Govt dono se live data.`,
-    sourcesSearched: ['Adzuna', 'data.gov.in'],
-    searchTime: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})
-  });
+  res.json(allJobs); // Direct array bhej, object nahi
 });
 
 app.listen(3000, () => console.log('✅ Server chalu hai'));
