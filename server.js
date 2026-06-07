@@ -7,9 +7,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const ADZUNA_APP_ID  = process.env.ADZUNA_APP_ID;
+const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID;
 const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY;
 const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
+const JSEARCH_API_KEY = process.env.RAPID_API_KEY;
 
 // ─── COUNTRY CODE MAP ─────────────────────────────────────────────────────────
 const COUNTRY_MAP = [
@@ -45,6 +46,10 @@ const COUNTRY_MAP = [
     code:'in', label:'India' }
 ];
 
+// FIELD_RULES, detectField, CAREER_GUIDES, getCareerGuide
+// isCreativeRole, fetchHimalayas, fetchJSearch, fetchAdzuna  
+// app.post, app.get routes, app.listen
+
 function getCountryInfo(text) {
   const t = text.toLowerCase();
   for (const entry of COUNTRY_MAP) {
@@ -72,7 +77,7 @@ function extractLocation(queryText) {
   }
   for (const entry of COUNTRY_MAP) {
     for (const k of entry.keys) {
-      if (t.includes(k)) return k.split(' ').map(w=>w[0].toUpperCase()+w.slice(1)).join(' ');
+      if (t.includes(k)) return k.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
     }
   }
   return '';
@@ -80,7 +85,19 @@ function extractLocation(queryText) {
 
 // ─── FIELD DETECTION ──────────────────────────────────────────────────────────
 const FIELD_RULES = [
-  // ── Fashion & Apparel (expanded) ──────────────────────────────────────────
+  // ── FINE ART / VISUAL ART ──────────────────────────────────────────────────
+  { keys:['painting','painter','oil painting','acrylic painting','watercolor','mural','canvas artist','portrait painter','landscape painter'], label:'Painting' },
+  { keys:['sculpture','sculptor','sculpting','stone carving','metal sculpture','bronze casting','clay modeling','installation sculpture'], label:'Sculpture' },
+  { keys:['graphic art','printmaking','etching','lithography','screen printing','woodcut','engraving','serigraphy'], label:'Graphic Art' },
+  { keys:['applied art','commercial art','advertising art','book design','poster design','calendar art'], label:'Applied Art' },
+  { keys:['traditional art','folk art','tribal art','madhubani','warli','pattachitra','kalamkari','tanjore','miniature painting','phad painting','gond art','dhokra','santhal art'], label:'Traditional Art' },
+  { keys:['art history','art historian','art critic','art researcher','museum studies','art curator','art conservation','art restoration'], label:'Art History & Curation' },
+  { keys:['public art','street art','mural art','wall painting','graffiti artist','community art','installation art','site specific art','land art'], label:'Public & Installation Art' },
+  { keys:['craft','handicraft','handicrafts','artisan','pottery','ceramics','weaving','embroidery','textile craft','bamboo craft','wood craft','metal craft','paper mache','applique','ikat','sambalpuri','chandua'], label:'Craft / Handicrafts' },
+  { keys:['wall painting','muralist','fresco','wall art','interior mural'], label:'Wall Painting' },
+  { keys:['installation','installation artist','immersive art','multimedia installation','sound installation','video installation'], label:'Installation Art' },
+
+  // ── Fashion & Apparel ──────────────────────────────────────────────────────
   { keys:['fashion model','runway model','editorial model','fit model','showroom model','catwalk model'], label:'Fashion Modelling' },
   { keys:['fashion communication','fashion pr','fashion marketing','fashion media','fashion content','fashion branding','fashion promotion','fashion publicist'], label:'Fashion Communication' },
   { keys:['fashion product','fashion product development','apparel product manager','garment product','fashion product manager','product development executive fashion'], label:'Fashion Product Development' },
@@ -95,11 +112,10 @@ const FIELD_RULES = [
   { keys:['fashion journalist','fashion editor','fashion writer','fashion blogger','fashion content writer','fashion copywriter','fashion reporter','vogue editor','elle editor','fashion magazine'], label:'Fashion Journalism & Editing' },
   { keys:['fashion photograph','fashion photo','fashion shooter','apparel photographer','lookbook photographer','catalogue photographer','editorial photographer fashion'], label:'Fashion Photography' },
   { keys:['fashion buyer','garment buyer','apparel buyer','clothing buyer','retail buyer fashion','buying assistant fashion','sourcing buyer'], label:'Fashion Buying' },
-  // ── Core Fashion (existing, expanded) ────────────────────────────────────
   { keys:['fashion design','fashion designer','apparel designer','costume design','garment design','womenswear','menswear','couture','rtw designer','knitwear designer','swimwear designer','lingerie designer'], label:'Fashion Design' },
-  // ── Other disciplines (unchanged) ────────────────────────────────────────
+
+  // ── Other Design Fields ────────────────────────────────────────────────────
   { keys:['textile','fabric design','weaving','knitting pattern','surface design'], label:'Textile Design' },
-  { keys:['visual art','fine art','fine arts','painting','sculptor','sculpture','printmaking','ceramics','art teacher','art instructor','studio art'], label:'Visual / Fine Art' },
   { keys:['architect','architecture','architectural designer','bim'], label:'Architecture' },
   { keys:['interior design','interior designer','space designer','interior decorator','set designer'], label:'Interior Design' },
   { keys:['graphic design','graphic designer','visual designer','brand designer','identity designer','print designer'], label:'Graphic Design' },
@@ -111,7 +127,6 @@ const FIELD_RULES = [
   { keys:['illustrat','illustrator','book illustrat'], label:'Illustration' },
   { keys:['motion graphic','motion design','motion designer','after effects','motion artist'], label:'Motion Graphics' },
   { keys:['jewellery','jewelry','jewel design','accessory design','goldsmith'], label:'Jewellery Design' },
-  { keys:['handicraft','craft design','artisan','craft artist','pottery','weav','embroidery','dhokra','applique','pattachitra'], label:'Handicraft / Craft Design' },
   { keys:['makeup','make-up','makeup artist','mua','beauty artist','sfx makeup','hair and makeup','cosmetology'], label:'Makeup & Beauty Art' },
   { keys:['game design','game designer','game artist','level designer','environment artist','game developer'], label:'Game Design & Art' },
   { keys:['web design','web designer','frontend design','web developer designer'], label:'Web Design' },
@@ -132,29 +147,183 @@ function detectField(text) {
   return 'Design & Art';
 }
 
-const ALL_DISCIPLINES = [
-  // Fashion & Apparel (new)
-  'fashion model','fashion communication','fashion product developer',
-  'fashion illustrator','fashion stylist','pattern maker','pattern cutter',
-  'garment technologist','apparel production manager','visual merchandiser',
-  'fashion merchandiser','trend forecaster','fashion journalist','fashion editor',
-  'fashion photographer','fashion buyer','fashion designer',
-  // Design & Art
-  'textile designer','fine artist','architect',
-  'interior designer','graphic designer','ux designer','ui designer',
-  'animator','3d artist','2d artist','vfx artist','photographer',
-  'videographer','digital artist','concept artist','illustrator',
-  'product designer','industrial designer','motion graphic designer',
-  'jewellery designer','handicraft artisan','makeup artist','beauty artist',
-  'game designer','game artist','web designer','packaging designer',
-  'art director','creative director','exhibition designer','curator',
-  'landscape architect','urban designer','furniture designer',
-  'brand designer','visual artist','sculpture artist','ceramics artist',
-  'printmaking artist','character designer','calligrapher','lettering artist',
-  'typography designer','painter','art teacher','costume designer','surface designer'
-];
+// ─── CAREER GUIDES ────────────────────────────────────────────────────────────
+const CAREER_GUIDES = {
+  'Painting': {
+    skills: ['Oil/Acrylic Techniques', 'Color Theory', 'Composition', 'Art History', 'Portfolio Development'],
+    portfolio: '15-20 best works showing range: portraits, landscapes, abstract. Include a written artist statement.',
+    salary: '₹2–5 LPA starting; ₹10–30 LPA for established artists. Gallery sales range from ₹50K to ₹5L per piece.',
+    companies: ['Art Galleries', 'Museums', 'Corporate Collections', 'Private Commissions', 'Art Schools'],
+    tip: 'Participate in events like India Art Fair and Kochi Biennale to build visibility. Maintain an active Instagram art page to attract collectors and commissions.'
+  },
+  'Sculpture': {
+    skills: ['Clay Modeling', 'Stone/Metal Work', 'Bronze Casting', 'Welding', '3D Design Software'],
+    portfolio: 'Photographs of 8–10 sculptures from multiple angles. Process videos and behind-the-scenes documentation add value.',
+    salary: '₹3–6 LPA for studio roles; ₹1–10L per commission for established sculptors.',
+    companies: ['Public Art Projects', 'Museums', 'Architecture Firms', 'Private Collectors'],
+    tip: 'Explore government tenders for public art commissions. Apply for Lalit Kala Akademi grants and residencies to gain recognition.'
+  },
+  'Traditional Art': {
+    skills: ['Pattachitra', 'Madhubani', 'Gond', 'Dhokra', 'Natural Dyes', 'Visual Storytelling'],
+    portfolio: 'Traditional works alongside contemporary adaptations. Document and share your process to attract buyers and institutions.',
+    salary: '₹15K–50K per month for studio/institutional work. Export orders can fetch ₹1–5L. Additional income through government craft schemes.',
+    companies: ['Tribes India', 'Fabindia', 'Export Houses', 'Craft Museums', 'State Tourism Departments'],
+    tip: 'Focus on GI-tagged products for export premium. Apply for Odisha government handicraft schemes and participate in Dastkar bazaars and national craft fairs.'
+  },
+  'Public & Installation Art': {
+    skills: ['Large-Scale Design', 'Project Management', 'Community Engagement', 'Weatherproof Materials', 'AR/VR Integration'],
+    portfolio: 'Site-specific proposals, past installation documentation, and community impact stories.',
+    salary: '₹5–15 LPA project-based. Major installations can fetch ₹10–50L per project.',
+    companies: ['Smart City Missions', 'Metro Rail Projects', 'Airports', 'Corporate Campuses', 'Art Festivals'],
+    tip: 'Monitor Smart City Mission tenders for public art opportunities. Apply to festivals such as Kala Ghoda and Serendipity Arts Festival for commissions and visibility.'
+  },
+  'Craft / Handicrafts': {
+    skills: ['Traditional Techniques', 'Product Development', 'Quality Control', 'E-commerce', 'Branding'],
+    portfolio: 'A curated product range with clear pricing. Show the craft process visually. Professional packaging significantly impacts buyer perception.',
+    salary: '₹20K–1L per month. Annual export revenue of ₹5–20L is achievable with the right buyers.',
+    companies: ['Fabindia', 'Good Earth', 'Jaypore', 'Okhai', 'Amazon Karigar'],
+    tip: 'Register on the GeM (Government e-Marketplace) portal for institutional orders. Leverage the ODOP (One District One Product) scheme. Join local craft clusters for training and market access.'
+  },
+  'Art History & Curation': {
+    skills: ['Research', 'Academic Writing', 'Critical Analysis', 'Museum Studies', 'Conservation Basics'],
+    portfolio: 'Published papers, exhibition catalogues, and documentation of curated shows.',
+    salary: '₹4–8 LPA in museum roles; ₹10–25 LPA for senior curators. Freelance curation fetches ₹50K–2L per show.',
+    companies: ['NGMA', 'National Museum', 'Kiran Nadar Museum of Art', "Christie's", 'Saffronart'],
+    tip: 'A PhD strengthens your profile for senior roles. Target international residencies and fellowships. Start publishing art writing and criticism to build thought leadership.'
+  },
+  'Fashion Design': {
+    skills: ['Adobe Illustrator', 'CLO 3D', 'Pattern Making', 'Trend Research', 'Fabric Knowledge'],
+    portfolio: 'Include 8–10 complete collections with technical packs and mood boards.',
+    salary: '₹3–6 LPA for freshers; ₹15–40 LPA at senior level in luxury and premium brands.',
+    companies: ['Gucci', 'Prada', 'Sabyasachi', 'Anita Dongre', 'Myntra Design Studio'],
+    tip: 'Internships at Business of Fashion or Vogue are the strongest launchpad for editorial and luxury roles. Build a strong digital portfolio on Behance.'
+  },
+  'Fashion Communication': {
+    skills: ['Content Writing', 'Social Media Strategy', 'PR & Brand Communications', 'Photoshop', 'Brand Strategy'],
+    portfolio: 'Campaign case studies, press releases, and social media growth metrics demonstrating impact.',
+    salary: '₹4–8 LPA for freshers; ₹12–25 LPA with luxury fashion houses.',
+    companies: ['Vogue India', 'Elle India', 'Business of Fashion', 'Condé Nast', 'Fashion PR agencies'],
+    tip: 'An internship at Vogue or BoF is the most effective step into luxury fashion communications. Build a strong personal brand on LinkedIn and Instagram.'
+  },
+  'Fashion Modelling': {
+    skills: ['Runway Technique', 'Posing & Body Awareness', 'Portfolio Development', 'Grooming', 'Fitness'],
+    portfolio: 'Professional comp card with editorial, commercial, and catalogue shots. 10–15 high-quality images minimum.',
+    salary: '₹15K–1L per shoot at entry level; ₹5–30L annually for working models. Top models earn significantly more.',
+    companies: ['Elite Model Management', 'Anima Creative Management', 'Toabh Models', 'Inega Model Agency'],
+    tip: 'Register with a reputable agency rather than approaching brands directly. Build a strong Instagram presence and attend fashion weeks to get noticed by designers.'
+  },
+  'Fashion Styling': {
+    skills: ['Wardrobe Curation', 'Trend Awareness', 'Colour Theory', 'Client Communication', 'Photoshoot Coordination'],
+    portfolio: 'Lookbooks, editorial shoots, and celebrity/client styling documentation with credits.',
+    salary: '₹3–6 LPA starting; ₹15–40 LPA for established celebrity or commercial stylists.',
+    companies: ['Vogue India', 'Filmfare', 'Production Houses', 'Celebrity Management Firms', 'Advertising Agencies'],
+    tip: 'Assist a senior stylist for 1–2 years to build industry contacts. Instagram is the primary portfolio platform — keep it updated with your best work.'
+  },
+  'Trend Forecasting': {
+    skills: ['Market Research', 'Consumer Behaviour Analysis', 'Colour Forecasting', 'Data Analysis', 'Presentation'],
+    portfolio: 'Trend reports, colour stories, and forecasting decks with clear rationale and visual direction.',
+    salary: '₹5–10 LPA entry level; ₹15–30 LPA at senior levels. Global agencies pay significantly more.',
+    companies: ['WGSN', 'Trendalytics', 'IMG Fashion', 'Textile Exchange', 'Myntra Strategy Team'],
+    tip: 'Subscribe to and study leading platforms like WGSN and Trendalytics. Build a niche — colour, materials, or a specific consumer segment — to stand out.'
+  },
+  'Visual Merchandising': {
+    skills: ['Store Layout Planning', 'Display Design', 'Brand Guideline Adherence', 'Planogram Execution', 'Retail Analytics'],
+    portfolio: 'Before/after store displays, window installations, and campaign visual setups with measurable impact.',
+    salary: '₹3–6 LPA for VM executives; ₹10–20 LPA for VM managers at large retail chains.',
+    companies: ['Shoppers Stop', 'Lifestyle', 'H&M India', 'Zara India', 'Reliance Retail'],
+    tip: 'Strong knowledge of brand guidelines and planogram software is essential. Retail analytics skills that demonstrate sales impact are increasingly valued by employers.'
+  },
+  'Pattern Making & Cutting': {
+    skills: ['Manual Drafting', 'Grading', 'CAD Pattern Software (Gerber/Lectra)', 'Fit Analysis', 'Technical Specification Writing'],
+    portfolio: 'Sample blocks, graded patterns, and annotated tech packs showcasing your precision and range.',
+    salary: '₹3–7 LPA in garment export units; ₹8–18 LPA in technical design roles at premium brands.',
+    companies: ['Orient Craft', 'Shahi Exports', 'Arvind Brands', 'Aditya Birla Fashion', 'W for Woman'],
+    tip: 'Proficiency in Gerber or Lectra CAD software significantly increases employability in export houses and premium brands.'
+  },
+  'Garment Technology': {
+    skills: ['Fabric & Material Science', 'Fit Analysis', 'Quality Standards (ISO/OEKO-TEX)', 'Technical Specification Writing', 'Production Liaison'],
+    portfolio: 'Tech packs, quality audit reports, and fit evaluation documentation.',
+    salary: '₹4–8 LPA for garment technologists; ₹12–25 LPA for senior technical roles.',
+    companies: ['H&M India', 'Marks & Spencer Sourcing', 'Tata Trent', 'Madura Fashion & Lifestyle', 'Export Houses'],
+    tip: 'Certifications in textile testing or quality management (e.g., OEKO-TEX) are a strong differentiator when applying to international buyers and sourcing offices.'
+  },
+  'Fashion Photography': {
+    skills: ['Studio Lighting', 'Adobe Lightroom & Photoshop', 'Art Direction', 'Client Coordination', 'Retouching'],
+    portfolio: 'Lookbooks, editorial shoots, and e-commerce catalogues. Keep your Instagram portfolio updated with recent work.',
+    salary: '₹25K–1L per shoot; ₹6–20 LPA annually depending on clients and frequency.',
+    companies: ['Vogue India', 'Harper\'s Bazaar India', 'Myntra', 'Nykaa Fashion', 'Advertising Agencies'],
+    tip: 'Assisting an established fashion photographer for 6–12 months is the fastest way to build industry contacts and technical skills.'
+  },
+  'Fashion Buying': {
+    skills: ['Trend Analysis', 'Supplier Negotiation', 'Range Planning', 'Open-to-Buy Budgeting', 'Retail Analytics'],
+    portfolio: 'Range plans, buying reports, and category performance analyses with measurable business outcomes.',
+    salary: '₹5–10 LPA for buying assistants/executives; ₹15–35 LPA for senior buyers.',
+    companies: ['Myntra', 'Reliance Trends', 'Lifestyle International', 'Max Fashion', 'Shoppers Stop'],
+    tip: 'An MBA in Retail or Fashion Management significantly accelerates career growth in buying. Strong Excel and data analysis skills are as important as fashion awareness.'
+  },
+  'Fashion Journalism & Editing': {
+    skills: ['Fashion Writing & Storytelling', 'Interviewing', 'SEO', 'Social Media', 'Visual Editing'],
+    portfolio: 'Published articles, editorial features, and digital content metrics demonstrating readership and engagement.',
+    salary: '₹3–6 LPA for entry-level editorial roles; ₹10–25 LPA for senior editors at major publications.',
+    companies: ['Vogue India', 'Elle India', 'Cosmopolitan India', 'Harper\'s Bazaar', 'Femina'],
+    tip: 'Build a byline by contributing to fashion blogs, online magazines, and LinkedIn. Internships at print or digital fashion publications are the most direct path into this field.'
+  },
+  'UI/UX Design': {
+    skills: ['Figma', 'User Research', 'Prototyping', 'Usability Testing', 'Design Systems'],
+    portfolio: 'Case studies on Behance/Dribbble showing problem → process → solution for 4–6 projects.',
+    salary: '₹5–10 LPA for freshers; ₹15–40 LPA for senior product designers.',
+    companies: ['Swiggy', 'Zomato', 'Razorpay', 'Myntra', 'Flipkart Design', 'ThoughtWorks'],
+    tip: 'Focus on case studies over visual polish — employers want to see your thinking process. Contribute to open-source design systems to build credibility.'
+  },
+  'Graphic Design': {
+    skills: ['Adobe Illustrator', 'Photoshop', 'InDesign', 'Typography', 'Brand Identity'],
+    portfolio: 'Diverse projects including print, branding, and digital on Behance. Include personal projects.',
+    salary: '₹3–6 LPA for freshers; ₹10–25 LPA at senior levels in agencies or tech companies.',
+    companies: ['Ogilvy', 'McCann', 'Dentsu', 'Wunderman Thompson', 'In-house brand teams'],
+    tip: 'Develop a niche — brand identity, editorial, or motion — to command higher freelance rates. A strong Behance presence is the most effective portfolio tool.'
+  },
+  'Interior Design': {
+    skills: ['AutoCAD', 'SketchUp', 'Space Planning', 'Material Specification', 'Project Coordination'],
+    portfolio: '5–8 complete projects with floor plans, renders, and finished photography.',
+    salary: '₹3–7 LPA for freshers; ₹15–40 LPA for senior designers at premium studios.',
+    companies: ['Godrej Interio', 'Livspace', 'Urban Ladder', 'HOK', 'Spaces Architects'],
+    tip: 'Proficiency in 3D visualization software like 3ds Max or Lumion significantly improves project win rates. Residential luxury and hospitality are the highest-paying segments.'
+  },
+  'Animation / 2D / 3D Art': {
+    skills: ['Maya/Blender', 'After Effects', 'Character Rigging', 'Storyboarding', 'Compositing'],
+    portfolio: 'Demo reel under 2 minutes showcasing character animation, environment art, or VFX work.',
+    salary: '₹4–8 LPA for freshers; ₹15–40 LPA at senior levels in film/game studios.',
+    companies: ['DQ Entertainment', 'Green Gold Animation', 'Prime Focus', 'Ubisoft India', 'Technicolor'],
+    tip: 'Specialize early — character animation, environment art, or VFX. A focused demo reel is far more effective than a broad showreel when applying to studios.'
+  },
+  'Architecture': {
+    skills: ['AutoCAD', 'Revit/BIM', 'SketchUp', 'Structural Principles', 'Sustainable Design'],
+    portfolio: '4–6 projects with concept drawings, models, and construction drawings where available.',
+    salary: '₹3–6 LPA for freshers; ₹15–50 LPA for senior architects at top firms.',
+    companies: ['Hafeez Contractor', 'CP Kukreja Architects', 'Morphogenesis', 'Meinhardt', 'AECOM India'],
+    tip: 'Council of Architecture registration is mandatory to practice in India. Sustainability certifications (GRIHA, LEED) are increasingly valued by clients.'
+  },
+  'Photography & Film': {
+    skills: ['Lighting', 'Adobe Lightroom/Premiere', 'Colour Grading', 'Storytelling', 'Client Management'],
+    portfolio: 'Specialized work in your niche — wedding, commercial, documentary, or fine art.',
+    salary: '₹3–8 LPA employed; ₹50K–5L per project for established freelancers.',
+    companies: ['Production Houses', 'Advertising Agencies', 'Media Companies', 'Wedding Studios', 'NGOs'],
+    tip: 'Identify and commit to a niche early. Commercial and advertising photography tends to be the most financially rewarding segment in India.'
+  },
+  'Design & Art': {
+    skills: ['Portfolio Development', 'Networking', 'Personal Branding', 'Relevant Software Skills'],
+    portfolio: 'Strong Behance or Dribbble presence with diverse, well-documented projects.',
+    salary: '₹3–8 LPA starting; varies significantly by specialization.',
+    companies: ['Design Agencies', 'Startups', 'In-house Brand Teams', 'Freelance'],
+    tip: 'Narrow down your search to a specific discipline — painting, sculpture, fashion design, UI/UX — for more relevant and higher-quality job results.'
+  }
+};
 
-// ─── ODISHA CREATIVE KEYWORD FILTER ──────────────────────────────────────────
+function getCareerGuide(fieldName) {
+  return CAREER_GUIDES[fieldName] || CAREER_GUIDES['Design & Art'];
+}
+
+// ─── CREATIVE FILTER ──────────────────────────────────────────────────────────
 function isCreativeRole(text) {
   const t = (text || '').toLowerCase();
   const creativeKeys = [
@@ -165,227 +334,85 @@ function isCreativeRole(text) {
     'curator','landscape','furniture','motion','packaging','typography','calligraph',
     'culture','heritage','handloom','weav','embroidery','dhokra','pattachitra',
     'applique','ikat','sambalpuri','odissi','folk art','tribal art',
-    // new fashion roles
     'model','stylist','merchandis','pattern mak','pattern cut','garment tech',
     'apparel','trend forecast','journalist','editor','buyer','couture',
     'womenswear','menswear','knitwear','swimwear','lingerie','wardrobe',
     'lookbook','catalogue','editorial','runway','catwalk','showroom',
-    'vm executive','visual merch','window display','retail display'
+    'vm executive','visual merch','window display','retail display',
+    'mural','fresco','installation','public art','street art','graffiti',
+    'etching','lithography','pottery','bronze','carving','miniature'
   ];
   return creativeKeys.some(k => t.includes(k));
 }
 
-// ─── DATA.GOV.IN — Multiple resource IDs for jobs ────────────────────────────
-// data.gov.in has multiple datasets. We try several to maximise hits.
-const DATAGOV_RESOURCES = [
-  '9115b89c-7d84-4b4f-b3a8-42b7b9c3f3b2',  // original
-  'fd2cbc79-13d5-4d6f-b92e-c96f10b4d8f8',  // state govt vacancies
-  'b4e6d8f3-2c1a-4e9b-a7d5-1f3e8c6b2d4a',  // employment exchange
-];
-
-async function fetchDataGov(stateFilter, disciplineHint) {
-  const results = [];
-  for (const resourceId of DATAGOV_RESOURCES) {
-    try {
-      const resp = await axios.get(
-        `https://api.data.gov.in/resource/${resourceId}`,
-        {
-          params: {
-            'api-key': DATA_GOV_API_KEY,
-            format: 'json',
-            'filters[state]': stateFilter,
-            limit: 25,
-          },
-          timeout: 8000
-        }
-      );
-      const records = resp.data?.records || [];
-      const filtered = records.filter(job => {
-        const text = [job.title, job.department, job.ministry, job.post_name, job.designation].join(' ');
-        return isCreativeRole(text);
-      });
-      results.push(...filtered.map(job => ({
-        id: 'govt_' + Math.random().toString(36).substr(2, 9),
-        title: job.title || job.post_name || job.designation || 'Government Creative Position',
-        org: job.department || job.ministry || job.organization || `Govt of ${stateFilter}`,
-        location: `${stateFilter}, India`,
-        desc: job.description || job.remarks || 'Government vacancy. Visit official portal for complete details including eligibility, pay scale, and application process.',
-        link: job.url || job.apply_url || 'https://odisha.gov.in/employment',
-        deadline: job.last_date || job.closing_date || 'See portal',
-        posted: job.published_date || job.notification_date || new Date().toISOString().split('T')[0],
-        startDate: 'As per notification',
-        type: 'Government Post',
-        salary: job.pay_scale || job.salary || null,
-        field: detectField([job.title, job.post_name, job.designation].join(' ')),
-        src: 'datagov',
-        srcLabel: 'data.gov.in',
-        country: 'India',
-        odisha: stateFilter.toLowerCase().includes('odisha'),
-        verified: true
-      })));
-    } catch (e) {
-      // silently skip failed resource IDs
-      console.warn(`[data.gov.in] resource ${resourceId} failed:`, e.message);
-    }
-  }
-  return results;
-}
-
-// ─── ODISHA EMPLOYMENT EXCHANGE (Rozgar) RSS/API ──────────────────────────────
-// Odisha's NIC-hosted employment portal — publicly accessible JSON
-async function fetchOdishaGovtJobs(disciplineHint) {
-  const results = [];
-
-  // ── 1. Odisha Employment Exchange (OEES) ──────────────────────────────────
-  // This is the official state govt job portal maintained by NIC
+// ─── HIMALAYAS API ────────────────────────────────────────────────────────────
+async function fetchHimalayas(searchWhat) {
   try {
-    const resp = await axios.get(
-      'https://employment.odisha.gov.in/api/v1/jobs',
-      { params: { category: 'arts', limit: 20 }, timeout: 8000 }
-    );
-    const jobs = resp.data?.jobs || resp.data?.data || [];
-    results.push(...jobs
-      .filter(j => isCreativeRole(j.title || j.post || ''))
-      .map(j => ({
-        id: 'oees_' + Math.random().toString(36).substr(2, 9),
-        title: j.title || j.post || 'Creative Position',
-        org: j.department || j.organization || 'Govt of Odisha',
-        location: j.location || 'Odisha, India',
-        desc: j.description || j.details || 'See official Odisha Employment Exchange portal.',
-        link: j.url || j.apply_link || 'https://employment.odisha.gov.in',
-        deadline: j.last_date || j.closing_date || 'See portal',
-        posted: j.date || j.published || new Date().toISOString().split('T')[0],
-        startDate: 'As per notification',
-        type: 'Government Post',
-        salary: j.pay_scale || j.salary || null,
-        field: detectField(j.title || j.post || ''),
-        src: 'datagov',
-        srcLabel: 'Odisha Govt',
-        country: 'India',
-        odisha: true,
-        verified: true
-      }))
-    );
-  } catch (e) {
-    console.warn('[OEES]', e.message);
-  }
-
-  // ── 2. Odisha PSC & State Recruitment Board jobs (via NIC open data) ──────
-  try {
-    const resp = await axios.get(
-      'https://opsc.nic.in/opsc/recruitment/json',
-      { params: { type: 'all' }, timeout: 8000 }
-    );
-    const jobs = resp.data?.results || resp.data?.data || [];
-    results.push(...jobs
-      .filter(j => isCreativeRole(j.postName || j.title || ''))
-      .map(j => ({
-        id: 'opsc_' + Math.random().toString(36).substr(2, 9),
-        title: j.postName || j.title || 'Recruitment Post',
-        org: j.department || 'Odisha Public Service Commission',
-        location: 'Odisha, India',
-        desc: j.description || `Recruitment for ${j.postName || 'creative post'} by OPSC. Check official website for eligibility and syllabus.`,
-        link: j.applyLink || j.notificationLink || 'https://opsc.gov.in',
-        deadline: j.lastDate || 'See portal',
-        posted: j.date || new Date().toISOString().split('T')[0],
-        startDate: 'As per notification',
-        type: 'Government Post',
-        salary: j.payScale || j.payBand || null,
-        field: detectField(j.postName || j.title || ''),
-        src: 'datagov',
-        srcLabel: 'OPSC',
-        country: 'India',
-        odisha: true,
-        verified: true
-      }))
-    );
-  } catch (e) {
-    console.warn('[OPSC]', e.message);
-  }
-
-  // ── 3. Odisha Culture / Handicraft Department open vacancies ─────────────
-  try {
-    const resp = await axios.get(
-      'https://odisha.gov.in/api/recruitment',
-      { params: { department: 'culture,handicraft,tourism,art' }, timeout: 8000 }
-    );
-    const jobs = resp.data?.vacancies || resp.data?.jobs || [];
-    results.push(...jobs.map(j => ({
-      id: 'odgov_' + Math.random().toString(36).substr(2, 9),
-      title: j.title || j.post_name || 'Govt Creative Post',
-      org: j.department || 'Govt of Odisha',
-      location: j.place || 'Odisha, India',
-      desc: j.description || 'Official Government of Odisha vacancy. Apply through official portal.',
-      link: j.apply_link || j.url || 'https://odisha.gov.in/employment',
-      deadline: j.last_date || 'See portal',
-      posted: j.published || new Date().toISOString().split('T')[0],
-      startDate: 'As per notification',
-      type: 'Government Post',
-      salary: j.pay_scale || null,
-      field: detectField(j.title || j.post_name || ''),
-      src: 'datagov',
-      srcLabel: 'Odisha Govt Portal',
-      country: 'India',
-      odisha: true,
-      verified: true
-    })));
-  } catch (e) {
-    console.warn('[Odisha Gov Portal]', e.message);
-  }
-
-  return results;
-}
-
-// ─── NAUKRI / INDEED INDIA (via RapidAPI proxy if available) ─────────────────
-// If you have a RapidAPI key set as RAPID_API_KEY, this pulls
-// Naukri/Indeed India jobs for Odisha cities
-async function fetchNaukriStyleJobs(query, location) {
-  if (!process.env.RAPID_API_KEY) return [];
-  const results = [];
-  try {
-    const resp = await axios.get('https://jobs-api14.p.rapidapi.com/list', {
-      params: {
-        query: query || 'designer',
-        location: location || 'Bhubaneswar, Odisha, India',
-        distance: '50',
-        language: 'en_GB',
-        remoteOnly: 'false',
-        employmentTypes: 'fulltime;parttime;intern;contractor',
-      },
-      headers: {
-        'X-RapidAPI-Key': process.env.RAPID_API_KEY,
-        'X-RapidAPI-Host': 'jobs-api14.p.rapidapi.com'
-      },
-      timeout: 10000
+    const resp = await axios.get('https://himalayas.app/jobs/api', {
+      params: { limit: 15, search: searchWhat },
+      timeout: 8000
     });
     const jobs = resp.data?.jobs || [];
-    results.push(...jobs
+    return jobs
       .filter(j => isCreativeRole(j.title || ''))
       .map(j => ({
-        id: 'rapid_' + Math.random().toString(36).substr(2, 9),
+        id: 'hima_' + j.id,
         title: j.title,
-        org: j.company,
-        location: j.location || location || 'Odisha, India',
-        desc: (j.description || '').slice(0, 250) + '...',
-        link: j.jobProviders?.[0]?.url || j.url || '#',
+        org: j.companyName,
+        location: j.locationRestrictions || 'Remote',
+        desc: (j.excerpt || '').slice(0, 250) + '...',
+        link: `https://himalayas.app/jobs/${j.companySlug}/${j.slug}`,
         deadline: 'Rolling',
-        posted: j.datePosted || new Date().toISOString().split('T')[0],
+        posted: j.pubDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         startDate: 'Immediate',
         type: j.employmentType || 'Full-time',
-        salary: j.salaryRange || null,
-        field: detectField(j.title + ' ' + (j.description || '')),
-        src: 'adzuna',
-        srcLabel: j.jobProviders?.[0]?.jobProvider || 'Jobs API',
-        country: 'India',
-        odisha: (j.location || '').toLowerCase().includes('odisha') ||
-                (j.location || '').toLowerCase().includes('bhubaneswar'),
+        salary: j.minSalary ? `${j.minSalary}–${j.maxSalary || '?'} ${j.salaryCurrency}` : null,
+        field: detectField(j.title + ' ' + j.excerpt),
+        src: 'himalayas',
+        srcLabel: 'Himalayas',
+        country: 'Remote',
+        odisha: false,
         verified: true
-      }))
-    );
+      }));
   } catch (e) {
-    console.warn('[RapidAPI Jobs]', e.message);
+    console.warn('[Himalayas]', e.message);
+    return [];
   }
-  return results;
+}
+
+// ─── JSEARCH API ──────────────────────────────────────────────────────────────
+async function fetchJSearch(query, countryCode) {
+  if (!JSEARCH_API_KEY) return [];
+  try {
+    const resp = await axios.get('https://jsearch.p.rapidapi.com/search', {
+      params: { query: query, page: '1', num_pages: '1', country: countryCode },
+      headers: { 'X-RapidAPI-Key': JSEARCH_API_KEY, 'X-RapidAPI-Host': 'jsearch.p.rapidapi.com' },
+      timeout: 10000
+    });
+    const jobs = resp.data?.data || [];
+    return jobs.map(job => ({
+      id: 'js_' + job.job_id,
+      title: job.job_title,
+      org: job.employer_name,
+      location: `${job.job_city || ''}, ${job.job_country}`.trim(),
+      desc: (job.job_description || '').slice(0, 250) + '...',
+      link: job.job_apply_link,
+      deadline: 'Rolling',
+      posted: job.job_posted_at_datetime_utc?.split('T')[0] || new Date().toISOString().split('T')[0],
+      startDate: 'Immediate',
+      type: job.job_employment_type || 'Full-time',
+      salary: job.job_min_salary ? `${job.job_min_salary}–${job.job_max_salary || '?'} ${job.job_salary_currency}` : null,
+      field: detectField(job.job_title + ' ' + job.job_description),
+      src: 'jsearch',
+      srcLabel: job.job_publisher || 'JSearch',
+      country: job.job_country,
+      odisha: (job.job_city || '').toLowerCase().includes('odisha'),
+      verified: true
+    }));
+  } catch (e) {
+    console.warn('[JSearch]', e.message);
+    return [];
+  }
 }
 
 // ─── ADZUNA HELPER ────────────────────────────────────────────────────────────
@@ -400,12 +427,7 @@ async function fetchAdzuna(countryCode, countryLabel, searchWhat, location) {
     };
     if (location) params.where = location;
 
-    // NOTE: For India (code='in'), Adzuna coverage is thin.
-    // We still call it but expect few/no results for Odisha city searches.
-    const r = await axios.get(
-      `https://api.adzuna.com/v1/api/jobs/${countryCode}/search/1`,
-      { params, timeout: 10000 }
-    );
+    const r = await axios.get(`https://api.adzuna.com/v1/api/jobs/${countryCode}/search/1`, { params, timeout: 10000 });
     return (r.data.results || []).map(job => ({
       id: 'adz_' + job.id,
       title: job.title,
@@ -417,9 +439,7 @@ async function fetchAdzuna(countryCode, countryLabel, searchWhat, location) {
       posted: new Date(job.created).toISOString().split('T')[0],
       startDate: 'Immediate',
       type: job.contract_time || 'Full-time',
-      salary: job.salary_min
-        ? `${job.salary_min}–${job.salary_max || '?'}${job.salary_is_predicted ? ' (est.)' : ''}`
-        : null,
+      salary: job.salary_min ? `${job.salary_min}–${job.salary_max || '?'}${job.salary_is_predicted ? ' (est.)' : ''}` : null,
       field: detectField(job.title + ' ' + job.description),
       src: 'adzuna',
       srcLabel: 'Adzuna',
@@ -433,13 +453,6 @@ async function fetchAdzuna(countryCode, countryLabel, searchWhat, location) {
   }
 }
 
-// ─── IS ODISHA SEARCH? ────────────────────────────────────────────────────────
-function isOdishaSearch(q, location) {
-  const combined = (q + ' ' + location).toLowerCase();
-  return ['odisha','bhubaneswar','cuttack','puri','rourkela','sambalpur',
-          'berhampur','brahmapur','balasore','khurda','angul'].some(k => combined.includes(k));
-}
-
 // ─── POST /api/search ─────────────────────────────────────────────────────────
 app.post('/api/search', async (req, res) => {
   const { q, field, type } = req.body;
@@ -448,29 +461,17 @@ app.post('/api/search', async (req, res) => {
   const location = extractLocation(rawQuery);
 
   const searchWhat = field || rawQuery;
+  const detectedField = detectField(searchWhat);
   let allJobs = [];
 
-  // Adzuna
-  allJobs.push(...await fetchAdzuna(countryCode, countryLabel, searchWhat, location));
+  const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
+    fetchAdzuna(countryCode, countryLabel, searchWhat, location),
+    fetchJSearch(searchWhat, countryCode),
+    fetchHimalayas(searchWhat)
+  ]);
 
-  // India-specific sources
-  if (countryCode === 'in') {
-    const isOdisha = isOdishaSearch(rawQuery, location);
-    const stateFilter = isOdisha || !location ? 'Odisha' : location;
+  allJobs.push(...adzunaJobs, ...jsearchJobs, ...himalayasJobs);
 
-    // data.gov.in (multiple resources)
-    allJobs.push(...await fetchDataGov(stateFilter, searchWhat));
-
-    // Odisha-specific govt portals
-    if (isOdisha || !location) {
-      allJobs.push(...await fetchOdishaGovtJobs(searchWhat));
-    }
-
-    // RapidAPI / Naukri-style
-    allJobs.push(...await fetchNaukriStyleJobs(searchWhat, location || 'Odisha'));
-  }
-
-  // Deduplicate by title+org combo
   const seen = new Set();
   allJobs = allJobs.filter(j => {
     const key = (j.title + j.org).toLowerCase().replace(/\s+/g, '');
@@ -479,23 +480,25 @@ app.post('/api/search', async (req, res) => {
     return true;
   });
 
+  const guide = getCareerGuide(detectedField);
+
   res.json({
     jobs: allJobs,
     total: allJobs.length,
     country: countryLabel,
     location: location || 'All regions',
-    advice: `Found ${allJobs.length} creative jobs${location ? ' in ' + location : ''}. Sources: Adzuna${countryCode === 'in' ? ', data.gov.in, Odisha Govt Portals' : ''}.`,
-    sourcesSearched: countryCode === 'in'
-      ? ['Adzuna', 'data.gov.in', 'OPSC', 'Odisha Employment Exchange']
-      : ['Adzuna'],
-    searchTime: new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })
+    field: detectedField,
+    guide: guide,
+    advice: `Found ${allJobs.length} ${detectedField} jobs${location ? ' in ' + location : ''}. ${guide.tip}`,
+    sourcesSearched: ['Adzuna', 'JSearch', 'Himalayas'],
+    searchTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
   });
 });
 
 // ─── GET /api/jobs ─────────────────────────────────────────────────────────────
 app.get('/api/jobs', async (req, res) => {
-  const q             = req.query.q || '';
-  const field         = req.query.field || '';
+  const q = req.query.q || '';
+  const field = req.query.field || '';
   const locationParam = req.query.location || '';
   const disciplineParam = req.query.discipline || '';
 
@@ -504,39 +507,22 @@ app.get('/api/jobs', async (req, res) => {
   const location = locationParam || extractLocation(locationHint);
 
   let searchWhat;
-  if (disciplineParam)     searchWhat = disciplineParam;
-  else if (q)              searchWhat = q;
-  else if (field)          searchWhat = field;
-  else                     searchWhat = ALL_DISCIPLINES.slice(0, 8).join(' OR ');
+  if (disciplineParam) searchWhat = disciplineParam;
+  else if (q) searchWhat = q;
+  else if (field) searchWhat = field;
+  else searchWhat = 'painting sculpture';
 
+  const detectedField = detectField(searchWhat);
   let allJobs = [];
 
-  // ── Adzuna ─────────────────────────────────────────────────────────────────
-  allJobs.push(...await fetchAdzuna(countryCode, countryLabel, searchWhat, location));
+  const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
+    fetchAdzuna(countryCode, countryLabel, searchWhat, location),
+    fetchJSearch(searchWhat, countryCode),
+    fetchHimalayas(searchWhat)
+  ]);
 
-  // ── India-specific sources ─────────────────────────────────────────────────
-  if (countryCode === 'in') {
-    const isOdisha = isOdishaSearch(q, locationParam);
+  allJobs.push(...adzunaJobs, ...jsearchJobs, ...himalayasJobs);
 
-    // Always try Odisha govt sources on default/empty load OR explicit Odisha search
-    if (isOdisha || !locationParam) {
-      // data.gov.in — Odisha
-      allJobs.push(...await fetchDataGov('Odisha', searchWhat));
-      // Odisha-specific portals
-      allJobs.push(...await fetchOdishaGovtJobs(searchWhat));
-    } else {
-      // Other Indian city — just data.gov.in for that state
-      allJobs.push(...await fetchDataGov(location, searchWhat));
-    }
-
-    // RapidAPI supplement for India
-    allJobs.push(...await fetchNaukriStyleJobs(
-      searchWhat,
-      isOdisha ? 'Bhubaneswar, Odisha, India' : (location || 'India')
-    ));
-  }
-
-  // ── Deduplicate ────────────────────────────────────────────────────────────
   const seen = new Set();
   allJobs = allJobs.filter(j => {
     const key = (j.title + j.org).toLowerCase().replace(/\s+/g, '');
@@ -545,7 +531,12 @@ app.get('/api/jobs', async (req, res) => {
     return true;
   });
 
-  res.json(allJobs);
+  const guide = getCareerGuide(detectedField);
+  res.json({
+    jobs: allJobs,
+    field: detectedField,
+    guide: guide
+  });
 });
 
 // ─── GET /api/disciplines ──────────────────────────────────────────────────────
@@ -553,13 +544,11 @@ app.get('/api/disciplines', (req, res) => {
   res.json(FIELD_RULES.map(r => r.label));
 });
 
-// ─── GET /api/countries ────────────────────────────────────────────────────────
-app.get('/api/countries', (req, res) => {
-  const countries = COUNTRY_MAP
-    .filter(c => c.label !== 'India')
-    .map(c => ({ code: c.code, label: c.label }));
-  countries.push({ code:'in', label:'India' });
-  res.json(countries);
+// ─── GET /api/guide/:field ────────────────────────────────────────────────────
+app.get('/api/guide/:field', (req, res) => {
+  const fieldName = req.params.field;
+  const guide = getCareerGuide(fieldName);
+  res.json(guide);
 });
 
 // ─── GET /api/health ──────────────────────────────────────────────────────────
@@ -567,8 +556,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     adzuna: !!(ADZUNA_APP_ID && ADZUNA_APP_KEY),
-    dataGov: !!DATA_GOV_API_KEY,
-    rapidApi: !!process.env.RAPID_API_KEY,
+    jsearch: !!JSEARCH_API_KEY,
+    himalayas: true,
     time: new Date().toISOString()
   });
 });
