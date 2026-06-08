@@ -7,9 +7,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID;
+const ADZUNA_APP_ID  = process.env.ADZUNA_APP_ID;
 const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY;
-const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
 const JSEARCH_API_KEY = process.env.RAPID_API_KEY;
 
 // ─── COUNTRY CODE MAP ─────────────────────────────────────────────────────────
@@ -34,44 +33,52 @@ const COUNTRY_MAP = [
   { keys: ['switzerland','zurich','geneva','bern','basel'], code:'ch', label:'Switzerland' },
   { keys: ['mexico','mexico city','guadalajara','monterrey'], code:'mx', label:'Mexico' },
   { keys: ['uae','dubai','abu dhabi','sharjah'], code:'ae', label:'UAE' },
-  { keys: ['india','odisha','bhubaneswar','cuttack','puri','rourkela','sambalpur',
-            'delhi','new delhi','mumbai','bombay','bangalore','bengaluru',
-            'chennai','madras','kolkata','calcutta','hyderabad','pune',
-            'ahmedabad','jaipur','lucknow','chandigarh','kochi','cochin',
-            'surat','nagpur','indore','bhopal','patna','ranchi','guwahati',
-            'thiruvananthapuram','visakhapatnam','coimbatore','vadodara',
-            'rajasthan','gujarat','maharashtra','karnataka','tamil nadu',
-            'west bengal','uttar pradesh','madhya pradesh','kerala','bihar',
-            'jharkhand','assam','andhra pradesh','telangana','punjab','haryana'],
-    code:'in', label:'India' }
+  { keys: [
+    'india','odisha','bhubaneswar','cuttack','puri','rourkela','sambalpur',
+    'delhi','new delhi','mumbai','bombay','bangalore','bengaluru',
+    'chennai','madras','kolkata','calcutta','hyderabad','pune',
+    'ahmedabad','jaipur','lucknow','chandigarh','kochi','cochin',
+    'surat','nagpur','indore','bhopal','patna','ranchi','guwahati',
+    'thiruvananthapuram','visakhapatnam','coimbatore','vadodara',
+    'rajasthan','gujarat','maharashtra','karnataka','tamil nadu',
+    'west bengal','uttar pradesh','madhya pradesh','kerala','bihar',
+    'jharkhand','assam','andhra pradesh','telangana','punjab','haryana'
+  ], code:'in', label:'India' }
 ];
 
-// FIELD_RULES, detectField, CAREER_GUIDES, getCareerGuide
-// isCreativeRole, fetchHimalayas, fetchJSearch, fetchAdzuna  
-// app.post, app.get routes, app.listen
-
 function getCountryInfo(text) {
-  const t = text.toLowerCase();
+  const t = (text || '').toLowerCase();
   for (const entry of COUNTRY_MAP) {
     if (entry.keys.some(k => t.includes(k))) return { code: entry.code, label: entry.label };
   }
-  return { code:'in', label:'India' };
+  return { code: 'in', label: 'India' };
 }
 
 const INDIA_CITIES = {
-  'odisha':['Odisha','Bhubaneswar','Cuttack','Puri','Rourkela','Sambalpur'],
-  'bhubaneswar':['Bhubaneswar'], 'cuttack':['Cuttack'], 'puri':['Puri'],
-  'rourkela':['Rourkela'], 'sambalpur':['Sambalpur'],
-  'delhi':['Delhi','New Delhi'], 'mumbai':['Mumbai','Bombay'],
-  'bangalore':['Bangalore','Bengaluru'], 'bengaluru':['Bengaluru','Bangalore'],
-  'chennai':['Chennai','Madras'], 'kolkata':['Kolkata','Calcutta'],
-  'hyderabad':['Hyderabad'], 'pune':['Pune'], 'ahmedabad':['Ahmedabad'],
-  'jaipur':['Jaipur'], 'lucknow':['Lucknow'], 'chandigarh':['Chandigarh'],
-  'kochi':['Kochi','Cochin'], 'guwahati':['Guwahati'],
+  'odisha':       ['Odisha','Bhubaneswar','Cuttack','Puri','Rourkela','Sambalpur'],
+  'bhubaneswar':  ['Bhubaneswar'],
+  'cuttack':      ['Cuttack'],
+  'puri':         ['Puri'],
+  'rourkela':     ['Rourkela'],
+  'sambalpur':    ['Sambalpur'],
+  'delhi':        ['Delhi','New Delhi'],
+  'mumbai':       ['Mumbai','Bombay'],
+  'bangalore':    ['Bangalore','Bengaluru'],
+  'bengaluru':    ['Bengaluru','Bangalore'],
+  'chennai':      ['Chennai','Madras'],
+  'kolkata':      ['Kolkata','Calcutta'],
+  'hyderabad':    ['Hyderabad'],
+  'pune':         ['Pune'],
+  'ahmedabad':    ['Ahmedabad'],
+  'jaipur':       ['Jaipur'],
+  'lucknow':      ['Lucknow'],
+  'chandigarh':   ['Chandigarh'],
+  'kochi':        ['Kochi','Cochin'],
+  'guwahati':     ['Guwahati'],
 };
 
 function extractLocation(queryText) {
-  const t = queryText.toLowerCase();
+  const t = (queryText || '').toLowerCase();
   for (const [key, variants] of Object.entries(INDIA_CITIES)) {
     if (t.includes(key)) return variants[0];
   }
@@ -85,7 +92,6 @@ function extractLocation(queryText) {
 
 // ─── FIELD DETECTION ──────────────────────────────────────────────────────────
 const FIELD_RULES = [
-  // ── FINE ART / VISUAL ART ──────────────────────────────────────────────────
   { keys:['painting','painter','oil painting','acrylic painting','watercolor','mural','canvas artist','portrait painter','landscape painter'], label:'Painting' },
   { keys:['sculpture','sculptor','sculpting','stone carving','metal sculpture','bronze casting','clay modeling','installation sculpture'], label:'Sculpture' },
   { keys:['graphic art','printmaking','etching','lithography','screen printing','woodcut','engraving','serigraphy'], label:'Graphic Art' },
@@ -96,8 +102,6 @@ const FIELD_RULES = [
   { keys:['craft','handicraft','handicrafts','artisan','pottery','ceramics','weaving','embroidery','textile craft','bamboo craft','wood craft','metal craft','paper mache','applique','ikat','sambalpuri','chandua'], label:'Craft / Handicrafts' },
   { keys:['wall painting','muralist','fresco','wall art','interior mural'], label:'Wall Painting' },
   { keys:['installation','installation artist','immersive art','multimedia installation','sound installation','video installation'], label:'Installation Art' },
-
-  // ── Fashion & Apparel ──────────────────────────────────────────────────────
   { keys:['fashion model','runway model','editorial model','fit model','showroom model','catwalk model'], label:'Fashion Modelling' },
   { keys:['fashion communication','fashion pr','fashion marketing','fashion media','fashion content','fashion branding','fashion promotion','fashion publicist'], label:'Fashion Communication' },
   { keys:['fashion product','fashion product development','apparel product manager','garment product','fashion product manager','product development executive fashion'], label:'Fashion Product Development' },
@@ -113,8 +117,6 @@ const FIELD_RULES = [
   { keys:['fashion photograph','fashion photo','fashion shooter','apparel photographer','lookbook photographer','catalogue photographer','editorial photographer fashion'], label:'Fashion Photography' },
   { keys:['fashion buyer','garment buyer','apparel buyer','clothing buyer','retail buyer fashion','buying assistant fashion','sourcing buyer'], label:'Fashion Buying' },
   { keys:['fashion design','fashion designer','apparel designer','costume design','garment design','womenswear','menswear','couture','rtw designer','knitwear designer','swimwear designer','lingerie designer'], label:'Fashion Design' },
-
-  // ── Other Design Fields ────────────────────────────────────────────────────
   { keys:['textile','fabric design','weaving','knitting pattern','surface design'], label:'Textile Design' },
   { keys:['architect','architecture','architectural designer','bim'], label:'Architecture' },
   { keys:['interior design','interior designer','space designer','interior decorator','set designer'], label:'Interior Design' },
@@ -140,7 +142,7 @@ const FIELD_RULES = [
 ];
 
 function detectField(text) {
-  const t = text.toLowerCase();
+  const t = (text || '').toLowerCase();
   for (const rule of FIELD_RULES) {
     if (rule.keys.some(k => t.includes(k))) return rule.label;
   }
@@ -251,7 +253,7 @@ const CAREER_GUIDES = {
     skills: ['Studio Lighting', 'Adobe Lightroom & Photoshop', 'Art Direction', 'Client Coordination', 'Retouching'],
     portfolio: 'Lookbooks, editorial shoots, and e-commerce catalogues. Keep your Instagram portfolio updated with recent work.',
     salary: '₹25K–1L per shoot; ₹6–20 LPA annually depending on clients and frequency.',
-    companies: ['Vogue India', 'Harper\'s Bazaar India', 'Myntra', 'Nykaa Fashion', 'Advertising Agencies'],
+    companies: ['Vogue India', "Harper's Bazaar India", 'Myntra', 'Nykaa Fashion', 'Advertising Agencies'],
     tip: 'Assisting an established fashion photographer for 6–12 months is the fastest way to build industry contacts and technical skills.'
   },
   'Fashion Buying': {
@@ -265,7 +267,7 @@ const CAREER_GUIDES = {
     skills: ['Fashion Writing & Storytelling', 'Interviewing', 'SEO', 'Social Media', 'Visual Editing'],
     portfolio: 'Published articles, editorial features, and digital content metrics demonstrating readership and engagement.',
     salary: '₹3–6 LPA for entry-level editorial roles; ₹10–25 LPA for senior editors at major publications.',
-    companies: ['Vogue India', 'Elle India', 'Cosmopolitan India', 'Harper\'s Bazaar', 'Femina'],
+    companies: ['Vogue India', 'Elle India', 'Cosmopolitan India', "Harper's Bazaar", 'Femina'],
     tip: 'Build a byline by contributing to fashion blogs, online magazines, and LinkedIn. Internships at print or digital fashion publications are the most direct path into this field.'
   },
   'UI/UX Design': {
@@ -356,23 +358,26 @@ async function fetchHimalayas(searchWhat) {
     return jobs
       .filter(j => isCreativeRole(j.title || ''))
       .map(j => ({
-        id: 'hima_' + j.id,
-        title: j.title,
-        org: j.companyName,
-        location: j.locationRestrictions || 'Remote',
-        desc: (j.excerpt || '').slice(0, 250) + '...',
-        link: `https://himalayas.app/jobs/${j.companySlug}/${j.slug}`,
-        deadline: 'Rolling',
-        posted: j.pubDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+        id:        'hima_' + j.id,
+        title:     j.title,
+        org:       j.companyName,
+        location:  j.locationRestrictions || 'Remote',
+        desc:      (j.excerpt || '').slice(0, 250) + '...',
+        link:      `https://himalayas.app/jobs/${j.companySlug}/${j.slug}`,
+        deadline:  'Rolling',
+        posted:    j.pubDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         startDate: 'Immediate',
-        type: j.employmentType || 'Full-time',
-        salary: j.minSalary ? `${j.minSalary}–${j.maxSalary || '?'} ${j.salaryCurrency}` : null,
-        field: detectField(j.title + ' ' + j.excerpt),
-        src: 'himalayas',
-        srcLabel: 'Himalayas',
-        country: 'Remote',
-        odisha: false,
-        verified: true
+        type:      j.employmentType || 'Full-time',
+        // FIX: j.salaryCurrency can be undefined — guard with || ''
+        salary:    j.minSalary
+                     ? `${j.minSalary}–${j.maxSalary || '?'} ${j.salaryCurrency || ''}`.trim()
+                     : null,
+        field:     detectField(j.title + ' ' + (j.excerpt || '')),
+        src:       'himalayas',
+        srcLabel:  'Himalayas',
+        country:   'Remote',
+        odisha:    false,
+        verified:  true
       }));
   } catch (e) {
     console.warn('[Himalayas]', e.message);
@@ -382,32 +387,39 @@ async function fetchHimalayas(searchWhat) {
 
 // ─── JSEARCH API ──────────────────────────────────────────────────────────────
 async function fetchJSearch(query, countryCode) {
+  // Guard: return early if API key is missing
   if (!JSEARCH_API_KEY) return [];
   try {
     const resp = await axios.get('https://jsearch.p.rapidapi.com/search', {
-      params: { query: query, page: '1', num_pages: '1', country: countryCode },
-      headers: { 'X-RapidAPI-Key': JSEARCH_API_KEY, 'X-RapidAPI-Host': 'jsearch.p.rapidapi.com' },
+      params: { query, page: '1', num_pages: '1', country: countryCode },
+      headers: {
+        'X-RapidAPI-Key':  JSEARCH_API_KEY,
+        'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
+      },
       timeout: 10000
     });
     const jobs = resp.data?.data || [];
     return jobs.map(job => ({
-      id: 'js_' + job.job_id,
-      title: job.job_title,
-      org: job.employer_name,
-      location: `${job.job_city || ''}, ${job.job_country}`.trim(),
-      desc: (job.job_description || '').slice(0, 250) + '...',
-      link: job.job_apply_link,
-      deadline: 'Rolling',
-      posted: job.job_posted_at_datetime_utc?.split('T')[0] || new Date().toISOString().split('T')[0],
+      id:        'js_' + job.job_id,
+      title:     job.job_title,
+      org:       job.employer_name,
+      location:  [job.job_city, job.job_country].filter(Boolean).join(', '),
+      desc:      (job.job_description || '').slice(0, 250) + '...',
+      link:      job.job_apply_link,
+      deadline:  'Rolling',
+      posted:    job.job_posted_at_datetime_utc?.split('T')[0] || new Date().toISOString().split('T')[0],
       startDate: 'Immediate',
-      type: job.job_employment_type || 'Full-time',
-      salary: job.job_min_salary ? `${job.job_min_salary}–${job.job_max_salary || '?'} ${job.job_salary_currency}` : null,
-      field: detectField(job.job_title + ' ' + job.job_description),
-      src: 'jsearch',
-      srcLabel: job.job_publisher || 'JSearch',
-      country: job.job_country,
-      odisha: (job.job_city || '').toLowerCase().includes('odisha'),
-      verified: true
+      type:      job.job_employment_type || 'Full-time',
+      // FIX: job_salary_currency can be undefined — guard with || ''
+      salary:    job.job_min_salary
+                   ? `${job.job_min_salary}–${job.job_max_salary || '?'} ${job.job_salary_currency || ''}`.trim()
+                   : null,
+      field:     detectField((job.job_title || '') + ' ' + (job.job_description || '')),
+      src:       'jsearch',
+      srcLabel:  job.job_publisher || 'JSearch',
+      country:   job.job_country || '',
+      odisha:    (job.job_city || '').toLowerCase().includes('odisha'),
+      verified:  true
     }));
   } catch (e) {
     console.warn('[JSearch]', e.message);
@@ -417,35 +429,45 @@ async function fetchJSearch(query, countryCode) {
 
 // ─── ADZUNA HELPER ────────────────────────────────────────────────────────────
 async function fetchAdzuna(countryCode, countryLabel, searchWhat, location) {
+  // FIX: guard against missing API credentials (was missing, unlike fetchJSearch)
+  if (!ADZUNA_APP_ID || !ADZUNA_APP_KEY) {
+    console.warn('[Adzuna] Missing APP_ID or APP_KEY — skipping');
+    return [];
+  }
   try {
     const params = {
-      app_id: ADZUNA_APP_ID,
-      app_key: ADZUNA_APP_KEY,
-      what: searchWhat,
+      app_id:          ADZUNA_APP_ID,
+      app_key:         ADZUNA_APP_KEY,
+      what:            searchWhat,
       results_per_page: 20,
-      'content-type': 'application/json'
+      'content-type':  'application/json'
     };
     if (location) params.where = location;
 
-    const r = await axios.get(`https://api.adzuna.com/v1/api/jobs/${countryCode}/search/1`, { params, timeout: 10000 });
+    const r = await axios.get(
+      `https://api.adzuna.com/v1/api/jobs/${countryCode}/search/1`,
+      { params, timeout: 10000 }
+    );
     return (r.data.results || []).map(job => ({
-      id: 'adz_' + job.id,
-      title: job.title,
-      org: job.company.display_name,
-      location: job.location.display_name,
-      desc: (job.description || '').slice(0, 250) + '...',
-      link: job.redirect_url,
-      deadline: 'Rolling',
-      posted: new Date(job.created).toISOString().split('T')[0],
+      id:        'adz_' + job.id,
+      title:     job.title,
+      org:       job.company.display_name,
+      location:  job.location.display_name,
+      desc:      (job.description || '').slice(0, 250) + '...',
+      link:      job.redirect_url,
+      deadline:  'Rolling',
+      posted:    new Date(job.created).toISOString().split('T')[0],
       startDate: 'Immediate',
-      type: job.contract_time || 'Full-time',
-      salary: job.salary_min ? `${job.salary_min}–${job.salary_max || '?'}${job.salary_is_predicted ? ' (est.)' : ''}` : null,
-      field: detectField(job.title + ' ' + job.description),
-      src: 'adzuna',
-      srcLabel: 'Adzuna',
-      country: countryLabel,
-      odisha: (job.location.display_name || '').toLowerCase().includes('odisha'),
-      verified: true
+      type:      job.contract_time || 'Full-time',
+      salary:    job.salary_min
+                   ? `${job.salary_min}–${job.salary_max || '?'}${job.salary_is_predicted ? ' (est.)' : ''}`
+                   : null,
+      field:     detectField((job.title || '') + ' ' + (job.description || '')),
+      src:       'adzuna',
+      srcLabel:  'Adzuna',
+      country:   countryLabel,
+      odisha:    (job.location.display_name || '').toLowerCase().includes('odisha'),
+      verified:  true
     }));
   } catch (e) {
     console.error('[Adzuna ERROR]', e.message);
@@ -453,16 +475,27 @@ async function fetchAdzuna(countryCode, countryLabel, searchWhat, location) {
   }
 }
 
+// ─── DEDUPLICATION HELPER ─────────────────────────────────────────────────────
+function deduplicateJobs(jobs) {
+  const seen = new Set();
+  return jobs.filter(j => {
+    const key = ((j.title || '') + (j.org || '')).toLowerCase().replace(/\s+/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // ─── POST /api/search ─────────────────────────────────────────────────────────
+// FIX: removed unused `type` from destructuring
 app.post('/api/search', async (req, res) => {
-  const { q, field, type } = req.body;
+  const { q, field } = req.body;
   const rawQuery = q || field || 'designer';
   const { code: countryCode, label: countryLabel } = getCountryInfo(rawQuery);
   const location = extractLocation(rawQuery);
 
-  const searchWhat = field || rawQuery;
+  const searchWhat    = field || rawQuery;
   const detectedField = detectField(searchWhat);
-  let allJobs = [];
 
   const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
     fetchAdzuna(countryCode, countryLabel, searchWhat, location),
@@ -470,36 +503,27 @@ app.post('/api/search', async (req, res) => {
     fetchHimalayas(searchWhat)
   ]);
 
-  allJobs.push(...adzunaJobs, ...jsearchJobs, ...himalayasJobs);
-
-  const seen = new Set();
-  allJobs = allJobs.filter(j => {
-    const key = (j.title + j.org).toLowerCase().replace(/\s+/g, '');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  const guide = getCareerGuide(detectedField);
+  const allJobs = deduplicateJobs([...adzunaJobs, ...jsearchJobs, ...himalayasJobs]);
+  const guide   = getCareerGuide(detectedField);
 
   res.json({
-    jobs: allJobs,
-    total: allJobs.length,
-    country: countryLabel,
-    location: location || 'All regions',
-    field: detectedField,
-    guide: guide,
-    advice: `Found ${allJobs.length} ${detectedField} jobs${location ? ' in ' + location : ''}. ${guide.tip}`,
+    jobs:           allJobs,
+    total:          allJobs.length,
+    country:        countryLabel,
+    location:       location || 'All regions',
+    field:          detectedField,
+    guide:          guide,
+    advice:         `Found ${allJobs.length} ${detectedField} jobs${location ? ' in ' + location : ''}. ${guide.tip}`,
     sourcesSearched: ['Adzuna', 'JSearch', 'Himalayas'],
-    searchTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    searchTime:     new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
   });
 });
 
 // ─── GET /api/jobs ─────────────────────────────────────────────────────────────
 app.get('/api/jobs', async (req, res) => {
-  const q = req.query.q || '';
-  const field = req.query.field || '';
-  const locationParam = req.query.location || '';
+  const q               = req.query.q        || '';
+  const field           = req.query.field    || '';
+  const locationParam   = req.query.location || '';
   const disciplineParam = req.query.discipline || '';
 
   const locationHint = [locationParam, q, field, disciplineParam].join(' ');
@@ -507,13 +531,12 @@ app.get('/api/jobs', async (req, res) => {
   const location = locationParam || extractLocation(locationHint);
 
   let searchWhat;
-  if (disciplineParam) searchWhat = disciplineParam;
-  else if (q) searchWhat = q;
-  else if (field) searchWhat = field;
-  else searchWhat = 'painting sculpture';
+  if (disciplineParam)    searchWhat = disciplineParam;
+  else if (q)             searchWhat = q;
+  else if (field)         searchWhat = field;
+  else                    searchWhat = 'designer'; // FIX: was 'painting sculpture' — single word works better across all APIs
 
   const detectedField = detectField(searchWhat);
-  let allJobs = [];
 
   const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
     fetchAdzuna(countryCode, countryLabel, searchWhat, location),
@@ -521,19 +544,11 @@ app.get('/api/jobs', async (req, res) => {
     fetchHimalayas(searchWhat)
   ]);
 
-  allJobs.push(...adzunaJobs, ...jsearchJobs, ...himalayasJobs);
+  const allJobs = deduplicateJobs([...adzunaJobs, ...jsearchJobs, ...himalayasJobs]);
+  const guide   = getCareerGuide(detectedField);
 
-  const seen = new Set();
-  allJobs = allJobs.filter(j => {
-    const key = (j.title + j.org).toLowerCase().replace(/\s+/g, '');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  const guide = getCareerGuide(detectedField);
   res.json({
-    jobs: allJobs,
+    jobs:  allJobs,
     field: detectedField,
     guide: guide
   });
@@ -546,19 +561,18 @@ app.get('/api/disciplines', (req, res) => {
 
 // ─── GET /api/guide/:field ────────────────────────────────────────────────────
 app.get('/api/guide/:field', (req, res) => {
-  const fieldName = req.params.field;
-  const guide = getCareerGuide(fieldName);
+  const guide = getCareerGuide(req.params.field);
   res.json(guide);
 });
 
 // ─── GET /api/health ──────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'ok',
-    adzuna: !!(ADZUNA_APP_ID && ADZUNA_APP_KEY),
-    jsearch: !!JSEARCH_API_KEY,
+    status:    'ok',
+    adzuna:    !!(ADZUNA_APP_ID && ADZUNA_APP_KEY),
+    jsearch:   !!JSEARCH_API_KEY,
     himalayas: true,
-    time: new Date().toISOString()
+    time:      new Date().toISOString()
   });
 });
 
