@@ -7,8 +7,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const ADZUNA_APP_ID  = process.env.ADZUNA_APP_ID;
-const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY;
+const ADZUNA_APP_ID   = process.env.ADZUNA_APP_ID;
+const ADZUNA_APP_KEY  = process.env.ADZUNA_APP_KEY;
 const JSEARCH_API_KEY = process.env.RAPID_API_KEY;
 
 // ─── COUNTRY CODE MAP ─────────────────────────────────────────────────────────
@@ -55,26 +55,26 @@ function getCountryInfo(text) {
 }
 
 const INDIA_CITIES = {
-  'odisha':       ['Odisha','Bhubaneswar','Cuttack','Puri','Rourkela','Sambalpur'],
-  'bhubaneswar':  ['Bhubaneswar'],
-  'cuttack':      ['Cuttack'],
-  'puri':         ['Puri'],
-  'rourkela':     ['Rourkela'],
-  'sambalpur':    ['Sambalpur'],
-  'delhi':        ['Delhi','New Delhi'],
-  'mumbai':       ['Mumbai','Bombay'],
-  'bangalore':    ['Bangalore','Bengaluru'],
-  'bengaluru':    ['Bengaluru','Bangalore'],
-  'chennai':      ['Chennai','Madras'],
-  'kolkata':      ['Kolkata','Calcutta'],
-  'hyderabad':    ['Hyderabad'],
-  'pune':         ['Pune'],
-  'ahmedabad':    ['Ahmedabad'],
-  'jaipur':       ['Jaipur'],
-  'lucknow':      ['Lucknow'],
-  'chandigarh':   ['Chandigarh'],
-  'kochi':        ['Kochi','Cochin'],
-  'guwahati':     ['Guwahati'],
+  'odisha':      ['Odisha','Bhubaneswar','Cuttack','Puri','Rourkela','Sambalpur'],
+  'bhubaneswar': ['Bhubaneswar'],
+  'cuttack':     ['Cuttack'],
+  'puri':        ['Puri'],
+  'rourkela':    ['Rourkela'],
+  'sambalpur':   ['Sambalpur'],
+  'delhi':       ['Delhi','New Delhi'],
+  'mumbai':      ['Mumbai','Bombay'],
+  'bangalore':   ['Bangalore','Bengaluru'],
+  'bengaluru':   ['Bengaluru','Bangalore'],
+  'chennai':     ['Chennai','Madras'],
+  'kolkata':     ['Kolkata','Calcutta'],
+  'hyderabad':   ['Hyderabad'],
+  'pune':        ['Pune'],
+  'ahmedabad':   ['Ahmedabad'],
+  'jaipur':      ['Jaipur'],
+  'lucknow':     ['Lucknow'],
+  'chandigarh':  ['Chandigarh'],
+  'kochi':       ['Kochi','Cochin'],
+  'guwahati':    ['Guwahati'],
 };
 
 function extractLocation(queryText) {
@@ -368,9 +368,8 @@ async function fetchHimalayas(searchWhat) {
         posted:    j.pubDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         startDate: 'Immediate',
         type:      j.employmentType || 'Full-time',
-        // FIX: j.salaryCurrency can be undefined — guard with || ''
         salary:    j.minSalary
-                     ? `${j.minSalary}–${j.maxSalary || '?'} ${j.salaryCurrency || ''}`.trim()
+                     ? `${j.minSalary}–${j.maxSalary || '?'} ${(j.salaryCurrency || '').trim()}`.trim()
                      : null,
         field:     detectField(j.title + ' ' + (j.excerpt || '')),
         src:       'himalayas',
@@ -387,7 +386,6 @@ async function fetchHimalayas(searchWhat) {
 
 // ─── JSEARCH API ──────────────────────────────────────────────────────────────
 async function fetchJSearch(query, countryCode) {
-  // Guard: return early if API key is missing
   if (!JSEARCH_API_KEY) return [];
   try {
     const resp = await axios.get('https://jsearch.p.rapidapi.com/search', {
@@ -399,28 +397,29 @@ async function fetchJSearch(query, countryCode) {
       timeout: 10000
     });
     const jobs = resp.data?.data || [];
-    return jobs.map(job => ({
-      id:        'js_' + job.job_id,
-      title:     job.job_title,
-      org:       job.employer_name,
-      location:  [job.job_city, job.job_country].filter(Boolean).join(', '),
-      desc:      (job.job_description || '').slice(0, 250) + '...',
-      link:      job.job_apply_link,
-      deadline:  'Rolling',
-      posted:    job.job_posted_at_datetime_utc?.split('T')[0] || new Date().toISOString().split('T')[0],
-      startDate: 'Immediate',
-      type:      job.job_employment_type || 'Full-time',
-      // FIX: job_salary_currency can be undefined — guard with || ''
-      salary:    job.job_min_salary
-                   ? `${job.job_min_salary}–${job.job_max_salary || '?'} ${job.job_salary_currency || ''}`.trim()
-                   : null,
-      field:     detectField((job.job_title || '') + ' ' + (job.job_description || '')),
-      src:       'jsearch',
-      srcLabel:  job.job_publisher || 'JSearch',
-      country:   job.job_country || '',
-      odisha:    (job.job_city || '').toLowerCase().includes('odisha'),
-      verified:  true
-    }));
+    return jobs
+      .filter(job => job.job_title && job.job_apply_link)   // FIX: skip malformed entries
+      .map(job => ({
+        id:        'js_' + job.job_id,
+        title:     job.job_title,
+        org:       job.employer_name || 'Unknown',
+        location:  [job.job_city, job.job_country].filter(Boolean).join(', ') || 'Remote',
+        desc:      (job.job_description || '').slice(0, 250) + '...',
+        link:      job.job_apply_link,
+        deadline:  'Rolling',
+        posted:    job.job_posted_at_datetime_utc?.split('T')[0] || new Date().toISOString().split('T')[0],
+        startDate: 'Immediate',
+        type:      job.job_employment_type || 'Full-time',
+        salary:    job.job_min_salary
+                     ? `${job.job_min_salary}–${job.job_max_salary || '?'} ${(job.job_salary_currency || '').trim()}`.trim()
+                     : null,
+        field:     detectField((job.job_title || '') + ' ' + (job.job_description || '')),
+        src:       'jsearch',
+        srcLabel:  job.job_publisher || 'JSearch',
+        country:   job.job_country || '',
+        odisha:    (job.job_city || '').toLowerCase().includes('odisha'),
+        verified:  true
+      }));
   } catch (e) {
     console.warn('[JSearch]', e.message);
     return [];
@@ -429,18 +428,17 @@ async function fetchJSearch(query, countryCode) {
 
 // ─── ADZUNA HELPER ────────────────────────────────────────────────────────────
 async function fetchAdzuna(countryCode, countryLabel, searchWhat, location) {
-  // FIX: guard against missing API credentials (was missing, unlike fetchJSearch)
   if (!ADZUNA_APP_ID || !ADZUNA_APP_KEY) {
     console.warn('[Adzuna] Missing APP_ID or APP_KEY — skipping');
     return [];
   }
   try {
     const params = {
-      app_id:          ADZUNA_APP_ID,
-      app_key:         ADZUNA_APP_KEY,
-      what:            searchWhat,
+      app_id:           ADZUNA_APP_ID,
+      app_key:          ADZUNA_APP_KEY,
+      what:             searchWhat,
       results_per_page: 20,
-      'content-type':  'application/json'
+      'content-type':   'application/json'
     };
     if (location) params.where = location;
 
@@ -448,37 +446,41 @@ async function fetchAdzuna(countryCode, countryLabel, searchWhat, location) {
       `https://api.adzuna.com/v1/api/jobs/${countryCode}/search/1`,
       { params, timeout: 10000 }
     );
-    return (r.data.results || []).map(job => ({
-      id:        'adz_' + job.id,
-      title:     job.title,
-      org:       job.company.display_name,
-      location:  job.location.display_name,
-      desc:      (job.description || '').slice(0, 250) + '...',
-      link:      job.redirect_url,
-      deadline:  'Rolling',
-      posted:    new Date(job.created).toISOString().split('T')[0],
-      startDate: 'Immediate',
-      type:      job.contract_time || 'Full-time',
-      salary:    job.salary_min
-                   ? `${job.salary_min}–${job.salary_max || '?'}${job.salary_is_predicted ? ' (est.)' : ''}`
-                   : null,
-      field:     detectField((job.title || '') + ' ' + (job.description || '')),
-      src:       'adzuna',
-      srcLabel:  'Adzuna',
-      country:   countryLabel,
-      odisha:    (job.location.display_name || '').toLowerCase().includes('odisha'),
-      verified:  true
-    }));
+
+    return (r.data.results || [])
+      .filter(job => job.redirect_url)                       // FIX: skip entries without an apply link
+      .map(job => ({
+        id:        'adz_' + job.id,
+        title:     job.title,
+        org:       job.company?.display_name || 'Unknown',   // FIX: safe access on company
+        location:  job.location?.display_name || '',         // FIX: safe access on location
+        desc:      (job.description || '').slice(0, 250) + '...',
+        link:      job.redirect_url,
+        deadline:  'Rolling',
+        posted:    new Date(job.created).toISOString().split('T')[0],
+        startDate: 'Immediate',
+        type:      job.contract_time || 'Full-time',
+        salary:    job.salary_min
+                     ? `${job.salary_min}–${job.salary_max || '?'}${job.salary_is_predicted ? ' (est.)' : ''}`
+                     : null,
+        field:     detectField((job.title || '') + ' ' + (job.description || '')),
+        src:       'adzuna',
+        srcLabel:  'Adzuna',
+        country:   countryLabel,
+        odisha:    (job.location?.display_name || '').toLowerCase().includes('odisha'),
+        verified:  true
+      }));
   } catch (e) {
     console.error('[Adzuna ERROR]', e.message);
     return [];
   }
 }
 
-// ─── DEDUPLICATION HELPER ─────────────────────────────────────────────────────
+// ─── DEDUPLICATION ───────────────────────────────────────────────────────────
 function deduplicateJobs(jobs) {
   const seen = new Set();
   return jobs.filter(j => {
+    if (!j.title || !j.link) return false;                   // FIX: also drop jobs with no link
     const key = ((j.title || '') + (j.org || '')).toLowerCase().replace(/\s+/g, '');
     if (seen.has(key)) return false;
     seen.add(key);
@@ -487,74 +489,73 @@ function deduplicateJobs(jobs) {
 }
 
 // ─── POST /api/search ─────────────────────────────────────────────────────────
-// FIX: removed unused `type` from destructuring
 app.post('/api/search', async (req, res) => {
-  const { q, field } = req.body;
-  const rawQuery = q || field || 'designer';
-  const { code: countryCode, label: countryLabel } = getCountryInfo(rawQuery);
-  const location = extractLocation(rawQuery);
+  try {
+    const { q, field } = req.body;
+    const rawQuery = (q || field || 'designer').trim();
+    const { code: countryCode, label: countryLabel } = getCountryInfo(rawQuery);
+    const location = extractLocation(rawQuery);
+    const searchWhat    = field || rawQuery;
+    const detectedField = detectField(searchWhat);
 
-  const searchWhat    = field || rawQuery;
-  const detectedField = detectField(searchWhat);
+    const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
+      fetchAdzuna(countryCode, countryLabel, searchWhat, location),
+      fetchJSearch(searchWhat, countryCode),
+      fetchHimalayas(searchWhat)
+    ]);
 
-  const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
-    fetchAdzuna(countryCode, countryLabel, searchWhat, location),
-    fetchJSearch(searchWhat, countryCode),
-    fetchHimalayas(searchWhat)
-  ]);
+    const allJobs = deduplicateJobs([...adzunaJobs, ...jsearchJobs, ...himalayasJobs]);
+    const guide   = getCareerGuide(detectedField);
 
-  const allJobs = deduplicateJobs([...adzunaJobs, ...jsearchJobs, ...himalayasJobs]);
-  const guide   = getCareerGuide(detectedField);
-
-  res.json({
-    jobs:           allJobs,
-    total:          allJobs.length,
-    country:        countryLabel,
-    location:       location || 'All regions',
-    field:          detectedField,
-    guide:          guide,
-    advice:         `Found ${allJobs.length} ${detectedField} jobs${location ? ' in ' + location : ''}. ${guide.tip}`,
-    sourcesSearched: ['Adzuna', 'JSearch', 'Himalayas'],
-    searchTime:     new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-  });
+    res.json({
+      jobs:            allJobs,
+      total:           allJobs.length,
+      country:         countryLabel,
+      location:        location || 'All regions',
+      field:           detectedField,
+      guide:           guide,
+      advice:          `Found ${allJobs.length} ${detectedField} jobs${location ? ' in ' + location : ''}. ${guide.tip}`,
+      sourcesSearched: ['Adzuna', 'JSearch', 'Himalayas'],
+      searchTime:      new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    });
+  } catch (e) {
+    console.error('[POST /api/search]', e.message);
+    res.status(500).json({ error: 'Search failed', message: e.message, jobs: [] });
+  }
 });
 
-// ─── GET /api/jobs ─────────────────────────────────────────────────────────────
+// ─── GET /api/jobs ────────────────────────────────────────────────────────────
 app.get('/api/jobs', async (req, res) => {
-  const q               = req.query.q        || '';
-  const field           = req.query.field    || '';
-  const locationParam   = req.query.location || '';
-  const disciplineParam = req.query.discipline || '';
+  try {
+    const q               = (req.query.q          || '').trim();
+    const field           = (req.query.field       || '').trim();
+    const locationParam   = (req.query.location    || '').trim();
+    const disciplineParam = (req.query.discipline  || '').trim();
 
-  const locationHint = [locationParam, q, field, disciplineParam].join(' ');
-  const { code: countryCode, label: countryLabel } = getCountryInfo(locationHint);
-  const location = locationParam || extractLocation(locationHint);
+    const locationHint = [locationParam, q, field, disciplineParam].join(' ');
+    const { code: countryCode, label: countryLabel } = getCountryInfo(locationHint);
+    const location = locationParam || extractLocation(locationHint);
 
-  let searchWhat;
-  if (disciplineParam)    searchWhat = disciplineParam;
-  else if (q)             searchWhat = q;
-  else if (field)         searchWhat = field;
-  else                    searchWhat = 'designer'; // FIX: was 'painting sculpture' — single word works better across all APIs
+    const searchWhat    = disciplineParam || q || field || 'designer';
+    const detectedField = detectField(searchWhat);
 
-  const detectedField = detectField(searchWhat);
+    const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
+      fetchAdzuna(countryCode, countryLabel, searchWhat, location),
+      fetchJSearch(searchWhat, countryCode),
+      fetchHimalayas(searchWhat)
+    ]);
 
-  const [adzunaJobs, jsearchJobs, himalayasJobs] = await Promise.all([
-    fetchAdzuna(countryCode, countryLabel, searchWhat, location),
-    fetchJSearch(searchWhat, countryCode),
-    fetchHimalayas(searchWhat)
-  ]);
+    const allJobs = deduplicateJobs([...adzunaJobs, ...jsearchJobs, ...himalayasJobs]);
+    const guide   = getCareerGuide(detectedField);
 
-  const allJobs = deduplicateJobs([...adzunaJobs, ...jsearchJobs, ...himalayasJobs]);
-  const guide   = getCareerGuide(detectedField);
-
-  res.json({
-    jobs:  allJobs,
-    field: detectedField,
-    guide: guide
-  });
+    res.json({ jobs: allJobs, field: detectedField, guide });
+  } catch (e) {
+    console.error('[GET /api/jobs]', e.message);
+    res.status(500).json({ error: 'Failed to fetch jobs', message: e.message, jobs: [] });
+  }
 });
 
-// ─── GET /api/disciplines ──────────────────────────────────────────────────────
+// ─── GET /api/disciplines ─────────────────────────────────────────────────────
 app.get('/api/disciplines', (req, res) => {
   res.json(FIELD_RULES.map(r => r.label));
 });
